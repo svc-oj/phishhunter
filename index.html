@@ -92,7 +92,7 @@ input.fi::placeholder{color:var(--text3)}
 
 /* ── MESSAGE TABLE ── */
 .mtable{width:100%;border-collapse:collapse;font-size:12px}
-.mtable th{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;position:sticky;top:52px}
+.mtable th{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;position:sticky;top:0;z-index:10}
 .mtable td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mtable tr:hover td{background:var(--bg3)}
 .mtable tr.sel td{background:rgba(64,144,232,.07)}
@@ -562,13 +562,18 @@ async function fetchLiveTrace(){
   const mailbox=document.getElementById('cfg-mailbox').value.trim();
   const days=parseInt(document.getElementById('cfg-lookback').value);
   if(!mailbox){toast('Enter a mailbox first','err');return;}
+  if(!S.token){toast('Sign in first','err');showAuthModal();return;}
+
   const since=new Date(Date.now()-days*864e5).toISOString();
   document.getElementById('upload-status').textContent='Fetching messages…';
+  document.getElementById('btn-fetch-live').disabled=true;
+
   try{
-    // Get messages from inbox+junk via Graph search
-    let url='/users/'+encodeURIComponent(mailbox)+'/messages?$top=250&$select=id,subject,from,receivedDateTime,internetMessageId&$filter=receivedDateTime ge '+since+'&$orderby=receivedDateTime desc';
+    // Use /me for the signed-in user (avoids needing admin Mail.ReadWrite on other mailboxes)
+    // Remove $orderby to avoid index requirement — we sort client-side
+    const url='/me/messages?$top=500&$select=id,subject,from,receivedDateTime,internetMessageId&$filter=receivedDateTime ge '+since;
     const data=await graphGet(url);
-    // Convert Graph messages to trace format
+
     S.rawRows=data.value.map(m=>({
       MessageId:m.internetMessageId||m.id,
       Received:m.receivedDateTime,
@@ -578,18 +583,30 @@ async function fetchLiveTrace(){
       Status:'Delivered',
       FromIP:'',
       Size:'',
-      MessageTraceId:m.id, // Graph message ID for deletion
+      MessageTraceId:m.id,
       _graphId:m.id
     }));
+
+    // Sort by received descending client-side
+    S.rawRows.sort((a,b)=>new Date(b.Received)-new Date(a.Received));
+
     document.getElementById('upload-status').textContent=S.rawRows.length+' messages fetched';
-    document.getElementById('dz-sub').textContent='&#10003; Live fetch: '+S.rawRows.length+' messages from '+mailbox;
+    document.getElementById('dz-sub').textContent='✓ Live fetch: '+S.rawRows.length+' messages from '+mailbox;
     document.getElementById('dropzone').classList.add('loaded');
     runClassification();
     toast(S.rawRows.length+' messages loaded from Graph','ok');
+    renderStep2();
     goStep(2);
   }catch(e){
-    toast('Graph error: '+e.message,'err');
-    document.getElementById('upload-status').textContent='Error: '+e.message;
+    const msg=e.message||'Unknown error';
+    toast('Graph error: '+msg,'err');
+    document.getElementById('upload-status').textContent='Error: '+msg;
+    // Show helpful context for common errors
+    if(msg.includes('401')||msg.includes('403')){
+      document.getElementById('upload-status').textContent='Permission error — sign out and sign back in, or use CSV upload instead';
+    }
+  }finally{
+    document.getElementById('btn-fetch-live').disabled=false;
   }
 }
 
