@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishHunter</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e14;--bg2:#111720;--bg3:#1a2332;--bg4:#1e2a3d;
+  --border:#1e3050;--border2:#2a4070;
+  --text:#c8d8f0;--text2:#6a8ab0;--text3:#3a5070;
+  --red:#e84040;--red-bg:rgba(232,64,64,.08);--red-border:rgba(232,64,64,.25);
+  --amber:#e8a020;--amber-bg:rgba(232,160,32,.08);--amber-border:rgba(232,160,32,.25);
+  --green:#20c060;--green-bg:rgba(32,192,96,.08);--green-border:rgba(32,192,96,.25);
+  --blue:#4090e8;--blue-bg:rgba(64,144,232,.08);--blue-border:rgba(64,144,232,.25);
+  --accent:#4090e8;
+  --mono:'Cascadia Code','Fira Code',monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh;overflow-x:hidden}
+
+/* ── HEADER ── */
+.hdr{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:14px;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-size:18px;font-weight:700;letter-spacing:-0.5px;color:#fff}
+.logo span{color:var(--blue)}
+.hdr-sub{font-size:11px;color:var(--text2);border-left:1px solid var(--border);padding-left:14px}
+.auth-bar{margin-left:auto;display:flex;align-items:center;gap:10px}
+.auth-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background .3s}
+.auth-dot.on{background:var(--green)}
+.auth-dot.pend{background:var(--amber);animation:pulse 1.2s infinite}
+.auth-lbl{font-size:11px;color:var(--text2)}
+.auth-lbl b{color:var(--text)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── WIZARD STEPS ── */
+.wizard{display:flex;align-items:center;gap:0;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--border)}
+.wstep{display:flex;align-items:center;gap:8px;padding:12px 16px;font-size:12px;font-weight:600;color:var(--text3);cursor:default;position:relative;white-space:nowrap}
+.wstep::after{content:'›';position:absolute;right:-2px;color:var(--border2);font-size:16px}
+.wstep:last-child::after{display:none}
+.wstep .wnum{width:20px;height:20px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.wstep.done{color:var(--green)}
+.wstep.done .wnum{background:var(--green);border-color:var(--green);color:#000}
+.wstep.active{color:var(--blue)}
+.wstep.active .wnum{border-color:var(--blue);color:var(--blue)}
+
+/* ── MAIN ── */
+.main{padding:24px;max-width:1200px;margin:0 auto}
+.step-panel{display:none}.step-panel.active{display:block}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px 22px;margin-bottom:14px}
+.card-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title-ic{color:var(--blue)}
+
+/* ── FORM ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fl{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+input.fi,select.fs{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:8px 11px;outline:none;font-family:var(--sans);width:100%;transition:border-color .15s}
+input.fi:focus,select.fs:focus{border-color:var(--blue)}
+input.fi::placeholder{color:var(--text3)}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;font-family:var(--sans)}
+.btn:active{transform:scale(.97)}
+.btn-blue{background:var(--blue);color:#fff}.btn-blue:hover{background:#5aa0f0}
+.btn-red{background:var(--red);color:#fff}.btn-red:hover{background:#f05050}
+.btn-green{background:var(--green);color:#000}.btn-green:hover{background:#30d070}
+.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border)}.btn-ghost:hover{border-color:var(--border2)}
+.btn-amber{background:var(--amber);color:#000}.btn-amber:hover{background:#f0b030}
+.btn-sm{padding:5px 11px;font-size:11px}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.bgrp{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ── DROP ZONE ── */
+.dz{border:2px dashed var(--border2);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:all .15s;margin-bottom:14px}
+.dz:hover,.dz.drag{border-color:var(--blue);background:var(--blue-bg)}
+.dz.loaded{border-color:var(--green);border-style:solid}
+.dz-ic{font-size:32px;margin-bottom:10px}
+.dz-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.dz-sub{font-size:12px;color:var(--text2)}
+
+/* ── STATS ── */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.sc-l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;font-weight:600}
+.sc-v{font-size:24px;font-weight:700}
+.sc-v.r{color:var(--red)}.sc-v.a{color:var(--amber)}.sc-v.g{color:var(--green)}.sc-v.b{color:var(--blue)}
+
+/* ── MESSAGE TABLE ── */
+.mtable{width:100%;border-collapse:collapse;font-size:12px}
+.mtable th{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;position:sticky;top:52px}
+.mtable td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mtable tr:hover td{background:var(--bg3)}
+.mtable tr.sel td{background:rgba(64,144,232,.07)}
+.mtable tr.sel-red td{background:var(--red-bg)}
+.mtable tr.gone td{opacity:.25;pointer-events:none}
+.mchk{accent-color:var(--blue);cursor:pointer}
+.score-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:12px;white-space:nowrap}
+.sp-r{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)}
+.sp-a{background:var(--amber-bg);border:1px solid var(--amber-border);color:var(--amber)}
+.sp-g{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green)}
+.etag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);margin:1px 1px 1px 0}
+.etag.h{background:var(--red-bg);border-color:var(--red-border);color:var(--red)}
+.etag.m{background:var(--amber-bg);border-color:var(--amber-border);color:var(--amber)}
+.tbl-wrap{max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:8px}
+
+/* ── SELECTION ACTION BAR ── */
+.sel-bar{position:sticky;bottom:0;background:var(--bg2);border-top:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:10px;z-index:50;transform:translateY(100%);transition:transform .2s}
+.sel-bar.show{transform:translateY(0)}
+.sel-count-lbl{font-size:13px;font-weight:600;color:var(--blue)}
+
+/* ── PROGRESS ── */
+.pwrap{background:var(--bg3);border-radius:4px;height:4px;overflow:hidden;margin:6px 0}
+.pbar{height:100%;border-radius:4px;background:var(--blue);transition:width .3s ease}
+.pbar.r{background:var(--red)}.pbar.g{background:var(--green)}.pbar.a{background:var(--amber)}
+
+/* ── AI ANALYSIS PANEL ── */
+.ai-panel{background:var(--bg2);border:1px solid var(--blue-border);border-radius:10px;padding:20px 22px;margin-bottom:14px}
+.ai-header{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.ai-icon{width:32px;height:32px;border-radius:8px;background:var(--blue-bg);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.ai-title{font-size:14px;font-weight:600}
+.ai-sub{font-size:11px;color:var(--text2)}
+.ai-thinking{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);padding:12px 0}
+.ai-dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--blue);animation:dot 1.2s infinite}
+.ai-dots span:nth-child(2){animation-delay:.2s}
+.ai-dots span:nth-child(3){animation-delay:.4s}
+@keyframes dot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.ai-stream{font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;min-height:40px}
+
+/* ── RULE CARDS ── */
+.rule-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:8px;display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:start}
+.rule-card.approved{border-color:var(--green-border);background:var(--green-bg)}
+.rule-card.rejected{opacity:.35;border-style:dashed}
+.rule-type-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;margin-top:2px}
+.rtb-domain{background:rgba(64,144,232,.15);color:var(--blue)}
+.rtb-subject{background:rgba(232,160,32,.15);color:var(--amber)}
+.rtb-sender{background:rgba(232,64,64,.15);color:var(--red)}
+.rule-detail{flex:1}
+.rule-value{font-family:var(--mono);font-size:12px;color:var(--amber);margin-bottom:3px;word-break:break-all}
+.rule-desc{font-size:11px;color:var(--text2)}
+.rule-affects{font-size:10px;color:var(--text3);margin-top:3px}
+.rule-actions{display:flex;gap:6px;align-items:flex-start;flex-shrink:0}
+
+/* ── EXECUTION PANEL ── */
+.exec-item{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:11px 14px;margin-bottom:6px;display:grid;grid-template-columns:20px 1fr auto;gap:10px;align-items:center;font-size:12px}
+.exec-ic{font-size:14px;text-align:center}
+.exec-lbl{font-weight:500}
+.exec-sub{font-size:11px;color:var(--text2)}
+.exec-status{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.es-pending{background:var(--bg2);color:var(--text3);border:1px solid var(--border)}
+.es-running{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.es-done{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.es-err{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+
+/* ── INFO BOXES ── */
+.ibox{border-radius:7px;padding:10px 14px;font-size:12px;display:flex;gap:9px;margin-bottom:12px;line-height:1.5}
+.ibox-blue{border:1px solid var(--blue-border);background:var(--blue-bg);color:var(--text2)}
+.ibox-amber{border:1px solid var(--amber-border);background:var(--amber-bg);color:var(--amber)}
+.ibox-red{border:1px solid var(--red-border);background:var(--red-bg);color:var(--red)}
+.ibox-green{border:1px solid var(--green-border);background:var(--green-bg);color:var(--green)}
+
+/* ── SEP ── */
+.sep{display:flex;align-items:center;gap:10px;margin:16px 0 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3)}
+.sep::before,.sep::after{content:'';flex:1;border-top:1px solid var(--border)}
+hr.dv{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:80px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:999}
+.toast{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:slide-in .2s ease;max-width:320px}
+.toast.ok{border-color:var(--green-border);color:var(--green)}
+.toast.err{border-color:var(--red-border);color:var(--red)}
+.toast.info{border-color:var(--blue-border);color:var(--blue)}
+@keyframes slide-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* ── MODAL ── */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center}
+.modal-ov.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:26px 28px;width:420px;max-width:90vw}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:16px}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="logo">Phish<span>Hunter</span></div>
+  <div class="hdr-sub">Exchange Online &middot; Threat Remediation</div>
+  <div class="auth-bar">
+    <div class="auth-dot" id="auth-dot"></div>
+    <span class="auth-lbl" id="auth-lbl">Not signed in</span>
+    <button class="btn btn-blue btn-sm" id="btn-signin">&#9889; Sign in</button>
+    <button class="btn btn-ghost btn-sm" id="btn-signout" style="display:none">Sign out</button>
+  </div>
+</div>
+
+<!-- WIZARD NAV -->
+<div class="wizard" id="wizard">
+  <div class="wstep active" data-step="1" id="ws1"><div class="wnum">1</div>Upload Trace</div>
+  <div class="wstep" data-step="2" id="ws2"><div class="wnum">2</div>Review Threats</div>
+  <div class="wstep" data-step="3" id="ws3"><div class="wnum">3</div>AI Analysis</div>
+  <div class="wstep" data-step="4" id="ws4"><div class="wnum">4</div>Approve Rules</div>
+  <div class="wstep" data-step="5" id="ws5"><div class="wnum">5</div>Execute</div>
+</div>
+
+<div class="main">
+
+<!-- ══ STEP 1: UPLOAD ══ -->
+<div class="step-panel active" id="step1">
+  <div class="card">
+    <div class="card-title"><span class="card-title-ic">&#9881;</span> Mailbox Configuration</div>
+    <div class="g3">
+      <div class="fg">
+        <label class="fl">Recipient Mailbox</label>
+        <input class="fi" id="cfg-mailbox" type="email" placeholder="user@domain.com">
+      </div>
+      <div class="fg">
+        <label class="fl">Lookback Window</label>
+        <select class="fs" id="cfg-lookback">
+          <option value="1">Last 24 hours</option>
+          <option value="3">Last 3 days</option>
+          <option value="7" selected>Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Internal Domain (exclude)</label>
+        <input class="fi" id="cfg-internal" placeholder="acisinc.com">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-title-ic">&#128194;</span> Message Trace</div>
+    <div class="dz" id="dropzone">
+      <div class="dz-ic">&#128202;</div>
+      <div class="dz-title">Drop Message Trace CSV here</div>
+      <div class="dz-sub" id="dz-sub">Or click to browse &mdash; export from Exchange Admin Center &rarr; Mail flow &rarr; Message trace</div>
+      <input type="file" id="csv-file" accept=".csv" style="display:none">
+    </div>
+    <div class="ibox ibox-blue">
+      <span>&#8505;</span>
+      <span>If signed in, PhishHunter can pull the trace live from Exchange. Otherwise upload a CSV exported from the Exchange Admin Center.</span>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-blue" id="btn-fetch-live" disabled>&#9889; Fetch Live Trace</button>
+      <button class="btn btn-ghost" id="btn-upload-csv">&#128194; Browse CSV</button>
+      <span style="font-size:12px;color:var(--text2)" id="upload-status"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STEP 2: REVIEW ══ -->
+<div class="step-panel" id="step2">
+  <div class="stats" id="stat-row"></div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div class="card-title" style="margin:0;flex:1"><span class="card-title-ic">&#9888;</span> Messages — select threats to remediate</div>
+      <button class="btn btn-ghost btn-sm" id="btn-sel-all-phish">&#9745; Select all threats</button>
+      <button class="btn btn-ghost btn-sm" id="btn-sel-clear">&#9744; Clear</button>
+    </div>
+    <div class="tbl-wrap" id="tbl-wrap">
+      <table class="mtable" id="msg-table">
+        <thead>
+          <tr>
+            <th style="width:32px"><input type="checkbox" id="chk-all" class="mchk"></th>
+            <th>Subject</th>
+            <th style="width:200px">Sender</th>
+            <th style="width:140px">Received</th>
+            <th style="width:80px">Score</th>
+            <th style="width:200px">Signals</th>
+          </tr>
+        </thead>
+        <tbody id="msg-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bgrp" style="margin-top:4px">
+    <button class="btn btn-ghost" id="btn-back-1">&#8592; Back</button>
+    <button class="btn btn-blue" id="btn-analyze">&#128161; Analyze Selection with AI &rarr;</button>
+    <span style="font-size:12px;color:var(--text2)" id="sel-lbl">0 selected</span>
+  </div>
+</div>
+
+<!-- ══ STEP 3: AI ANALYSIS ══ -->
+<div class="step-panel" id="step3">
+  <div class="ai-panel" id="ai-panel">
+    <div class="ai-header">
+      <div class="ai-icon">&#129302;</div>
+      <div>
+        <div class="ai-title">AI Threat Analysis</div>
+        <div class="ai-sub" id="ai-sub">Analyzing <span id="ai-count">0</span> selected messages&hellip;</div>
+      </div>
+    </div>
+    <div id="ai-output">
+      <div class="ai-thinking" id="ai-thinking">
+        <div class="ai-dots"><span></span><span></span><span></span></div>
+        <span>Analyzing patterns across selected messages&hellip;</span>
+      </div>
+      <div class="ai-stream" id="ai-stream"></div>
+    </div>
+  </div>
+
+  <div id="rules-preview" style="display:none">
+    <div class="sep">&#9888; Suggested Rules — review before approving</div>
+    <div id="rules-list"></div>
+    <div class="sep">&#128465; Cleanup — messages to delete from mailbox</div>
+    <div id="cleanup-list"></div>
+  </div>
+
+  <div class="bgrp" style="margin-top:16px">
+    <button class="btn btn-ghost" id="btn-back-2">&#8592; Back</button>
+    <button class="btn btn-blue" id="btn-to-approve" style="display:none">Review &amp; Approve &rarr;</button>
+  </div>
+</div>
+
+<!-- ══ STEP 4: APPROVE ══ -->
+<div class="step-panel" id="step4">
+  <div class="ibox ibox-amber">
+    <span>&#9888;</span>
+    <span>Review each suggested action carefully. Approved rules will be created in Exchange. Approved deletions will permanently remove messages from the mailbox.</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-title-ic">&#128737;</span> Mail Rules to Create</div>
+    <div id="approve-rules-list"></div>
+    <div class="empty-rules" id="empty-rules" style="display:none;text-align:center;padding:20px;color:var(--text3);font-size:13px">No rules suggested for this selection.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="card-title-ic">&#128465;</span> Messages to Delete (<span id="del-count">0</span>)</div>
+    <div class="tbl-wrap" style="max-height:220px" id="del-tbl-wrap">
+      <table class="mtable" id="del-table">
+        <thead><tr>
+          <th style="width:32px"><input type="checkbox" id="chk-del-all" class="mchk"></th>
+          <th>Subject</th><th style="width:180px">Sender</th><th style="width:130px">Received</th>
+        </tr></thead>
+        <tbody id="del-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bgrp">
+    <button class="btn btn-ghost" id="btn-back-3">&#8592; Back</button>
+    <button class="btn btn-green" id="btn-execute">&#9889; Execute Approved Actions</button>
+    <span style="font-size:12px;color:var(--text2)" id="approve-summary"></span>
+  </div>
+</div>
+
+<!-- ══ STEP 5: EXECUTE ══ -->
+<div class="step-panel" id="step5">
+  <div class="card">
+    <div class="card-title"><span class="card-title-ic">&#9889;</span> Execution Log</div>
+    <div id="exec-list"></div>
+    <div class="pwrap"><div class="pbar g" id="exec-pbar" style="width:0%"></div></div>
+    <div style="font-size:11px;color:var(--text2);margin-top:4px" id="exec-pct">0%</div>
+  </div>
+
+  <div id="exec-summary" style="display:none">
+    <div class="ibox ibox-green" id="exec-success-box">
+      <span>&#10003;</span><span id="exec-success-msg"></span>
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-blue" id="btn-done">&#10003; Done — Start New Hunt</button>
+      <button class="btn btn-ghost" id="btn-export-results">&#11015; Export Report</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<!-- SELECTION ACTION BAR -->
+<div class="sel-bar" id="sel-bar">
+  <span class="sel-count-lbl" id="sel-bar-count">0 selected</span>
+  <div style="flex:1"></div>
+  <button class="btn btn-amber btn-sm" id="btn-bar-analyze">&#128161; Analyze with AI</button>
+  <button class="btn btn-red btn-sm" id="btn-bar-delete-only">&#128465; Delete Only</button>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- OAUTH MODAL -->
+<div class="modal-ov" id="auth-modal">
+  <div class="modal">
+    <div class="modal-title">&#9889; Sign in to Microsoft 365</div>
+    <div class="ibox ibox-blue" style="margin-bottom:14px">
+      <span>&#8505;</span>
+      <span>PhishHunter will request permission to read and delete mail and manage mailbox rules on behalf of the signed-in user. You will be redirected to Microsoft to authenticate.</span>
+    </div>
+    <div class="fg" style="margin-bottom:12px">
+      <label class="fl">Your Admin UPN</label>
+      <input class="fi" id="auth-upn" type="email" placeholder="admin@yourdomain.com">
+    </div>
+    <div class="fg" style="margin-bottom:18px">
+      <label class="fl">Entra App Client ID</label>
+      <input class="fi" id="auth-clientid" type="text" value="8052e410-b912-4b0c-be27-c57dff41f6d5">
+    </div>
+    <div class="bgrp">
+      <button class="btn btn-blue" id="auth-go">&#9889; Sign in with Microsoft</button>
+      <button class="btn btn-ghost" id="auth-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════
+const TENANT_ID   = '6be014f6-5c07-4791-94fd-023595d09f37';
+const CLIENT_ID   = '8052e410-b912-4b0c-be27-c57dff41f6d5';
+const REDIRECT    = window.location.href.split('?')[0].split('#')[0];
+const SCOPES      = ['https://graph.microsoft.com/Mail.ReadWrite','https://graph.microsoft.com/MailboxSettings.ReadWrite','https://graph.microsoft.com/User.Read','offline_access'];
+const GRAPH       = 'https://graph.microsoft.com/v1.0';
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const S = {
+  step: 1,
+  token: null,
+  userUpn: null,
+  userId: null,
+  rawRows: [],
+  phish: [],
+  borderline: [],
+  clean: [],
+  selected: new Set(),
+  suggestedRules: [],
+  approvedRules: new Set(),
+  approvedDeletes: new Set(),
+  execResults: []
+};
+
+// ═══════════════════════════════════════════════════════
+//  HEURISTICS (unchanged from PhishHunter v1)
+// ═══════════════════════════════════════════════════════
+const HI_TLD=['.ru','.xyz','.info','.online','.click','.tk','.top','.pw','.ws','.cc','.gq','.cf','.ga','.ml'];
+const SUBJ_PAT=[/re:\s*(where|what|how|who|can|quick|got|saw|sent|did|need|missed|check)/i,/verify\s*(now|your|account|email)/i,/account\s*(suspended|compromised|locked|limited|disabled)/i,/urgent\s*(action|update|attention|message|notice)/i,/password\s*(expire|expiring|reset|change)/i,/re-?authent/i,/salary\s*(revision|adjustment|notice)/i,/remittance.{0,30}(fast transfer|trusted service)/i,/payment\s*(detail|available)\s*(in|on)\s*onedrive/i,/[a-z0-9]{6,}_[a-z]{5,}_[a-z]{5,}/];
+const SOC_ENG=[/^re:\s+[a-zA-Z0-9]{3,20}$/i,/re:\s+quick\s+question/i,/you.ve\s+probably\s+seen/i];
+const IMPERSONATE=[{brand:'QuickBooks/Intuit',dom:'notification.intuit.com',sp:[/salary/i,/onedrive/i,/voice\s+message/i,/re-auth/i,/remittance.{0,30}trusted/i]},{brand:'Amazon',dom:'amazon.com',sp:[/order\s+approval\s+required/i]}];
+const COLD=[/protect\s+your\s+(local\s+)?territory/i,/hvac\s+supplies/i,/any\s+upcoming\s+projects?/i,/accounting\s*&?\s*finance\s+talent/i,/growth\s+without\s+extra\s+admin/i];
+const SAFE=['linkedin.com','amazon.com','microsoft.com','office.com','outlook.com','salesforce.com','sfdc.net','knowbe4.com','barracudanetworks.com','tiktok.com','seatgeek.com','zillow.com','nraila.org','carta.com','intralinks.com','cadencebank.com','gmetrix.net','beehiiv.com','simpro.us','emkay.com','sycuan.com'];
+const INT_IPS=['12.220.85.50','2600:100c:','2600:100d:'];
+
+function classify(row,intDom){
+  const sender=(row.SenderAddress||'').toLowerCase();
+  const subj=row.Subject||'';
+  const fromIP=row.FromIP||'';
+  const status=(row.Status||'').toLowerCase();
+  const msgId=row.MessageId||'';
+  const dom=sender.includes('@')?sender.split('@')[1]:sender;
+  const tld=dom?'.'+dom.split('.').slice(-1)[0]:'';
+  if(intDom&&dom===intDom.toLowerCase())return{v:'clean',s:0,r:[]};
+  if(INT_IPS.some(ip=>fromIP.startsWith(ip)))return{v:'clean',s:0,r:[]};
+  if(status==='quarantined')return{v:'borderline',s:65,r:['Quarantined by EOP']};
+  if(status==='filteredasspam')return{v:'phish',s:85,r:['Filtered as spam by EOP']};
+  const r=[];let s=0;
+  if(HI_TLD.some(t=>dom.endsWith(t))){s+=30;r.push('High-risk TLD ('+tld+')');}
+  for(const p of SUBJ_PAT)if(p.test(subj)){s+=35;r.push('Phishing subject pattern');break;}
+  for(const p of SOC_ENG)if(p.test(subj)){s+=20;r.push('Social engineering subject');break;}
+  if(/[a-z0-9]{5,}_[a-z]{5,}/.test(subj)){s+=40;r.push('Randomized harvest subject');}
+  for(const imp of IMPERSONATE){if(dom.includes(imp.dom.split('.')[0])&&imp.sp.some(p=>p.test(subj))){s+=50;r.push('Brand impersonation — '+imp.brand);}}
+  if(/^re:/i.test(subj)&&!SAFE.some(d=>dom.includes(d))){if(COLD.some(p=>p.test(subj))||/^re:\s+(where|acis|what|quick|sent|call|built|send)/i.test(subj)){s+=25;r.push('Fake Re: on cold outreach');}}
+  if(COLD.some(p=>p.test(subj))){s+=15;r.push('Cold outreach');}
+  if(SAFE.some(d=>dom.includes(d))){if(!SUBJ_PAT.some(p=>p.test(subj)))return{v:'clean',s:0,r:[]};s=Math.min(s,70);r.push('Known domain, suspicious subject');}
+  if(msgId.includes('!&!')||/\^[a-z0-9|]{4,}/.test(msgId)){s+=15;r.push('Malformed Message-ID');}
+  return s>=60?{v:'phish',s:Math.min(s,99),r}:s>=25?{v:'borderline',s,r}:{v:'clean',s,r};
+}
+
+// ═══════════════════════════════════════════════════════
+//  CSV
+// ═══════════════════════════════════════════════════════
+function parseCSV(txt){
+  const lines=txt.trim().split('\n');
+  const hdr=lines[0].replace(/^\uFEFF/,'').split(',').map(h=>h.replace(/^"|"$/g,'').trim());
+  return lines.slice(1).map(line=>{
+    const vals=splitCSV(line),obj={};
+    hdr.forEach((h,i)=>{obj[h]=(vals[i]||'').replace(/^"|"$/g,'').trim();});
+    return obj;
+  }).filter(r=>r.SenderAddress||r.Subject);
+}
+function splitCSV(l){const r=[];let c='',q=false;for(let i=0;i<l.length;i++){if(l[i]==='"'){q=!q;continue;}if(l[i]===','&&!q){r.push(c);c='';continue;}c+=l[i];}r.push(c);return r;}
+
+// ═══════════════════════════════════════════════════════
+//  OAUTH / GRAPH
+// ═══════════════════════════════════════════════════════
+function buildAuthUrl(clientId){
+  const params=new URLSearchParams({
+    client_id:clientId,
+    response_type:'token',
+    redirect_uri:REDIRECT,
+    scope:SCOPES.join(' '),
+    response_mode:'fragment',
+    nonce:Math.random().toString(36).slice(2)
+  });
+  return 'https://login.microsoftonline.com/'+TENANT_ID+'/oauth2/v2.0/authorize?'+params;
+}
+
+function handleOAuthReturn(){
+  const hash=window.location.hash;
+  if(!hash.includes('access_token'))return false;
+  const params=new URLSearchParams(hash.slice(1));
+  const token=params.get('access_token');
+  if(!token)return false;
+  S.token=token;
+  window.history.replaceState(null,'',REDIRECT);
+  fetchUserInfo();
+  return true;
+}
+
+async function fetchUserInfo(){
+  try{
+    const r=await graphGet('/me');
+    S.userUpn=r.userPrincipalName;
+    S.userId=r.id;
+    setAuthUI(true,r.displayName||r.userPrincipalName);
+    document.getElementById('cfg-mailbox').value=r.userPrincipalName;
+    toast('Signed in as '+r.displayName,'ok');
+  }catch(e){setAuthUI(false);}
+}
+
+async function graphGet(path){
+  const r=await fetch(GRAPH+path,{headers:{Authorization:'Bearer '+S.token}});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+async function graphPost(path,body){
+  const r=await fetch(GRAPH+path,{method:'POST',headers:{Authorization:'Bearer '+S.token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error(await r.text());
+  return r.status===204?null:r.json();
+}
+async function graphDelete(path){
+  const r=await fetch(GRAPH+path,{method:'DELETE',headers:{Authorization:'Bearer '+S.token}});
+  if(!r.ok)throw new Error(await r.text());
+}
+
+function setAuthUI(on,name){
+  document.getElementById('auth-dot').className='auth-dot'+(on?' on':'');
+  document.getElementById('auth-lbl').innerHTML=on?'<b>'+esc(name)+'</b>':'Not signed in';
+  document.getElementById('btn-signin').style.display=on?'none':'';
+  document.getElementById('btn-signout').style.display=on?'':'none';
+  document.getElementById('btn-fetch-live').disabled=!on;
+}
+
+// ═══════════════════════════════════════════════════════
+//  GRAPH — FETCH LIVE TRACE
+// ═══════════════════════════════════════════════════════
+async function fetchLiveTrace(){
+  const mailbox=document.getElementById('cfg-mailbox').value.trim();
+  const days=parseInt(document.getElementById('cfg-lookback').value);
+  if(!mailbox){toast('Enter a mailbox first','err');return;}
+  const since=new Date(Date.now()-days*864e5).toISOString();
+  document.getElementById('upload-status').textContent='Fetching messages…';
+  try{
+    // Get messages from inbox+junk via Graph search
+    let url='/users/'+encodeURIComponent(mailbox)+'/messages?$top=250&$select=id,subject,from,receivedDateTime,internetMessageId&$filter=receivedDateTime ge '+since+'&$orderby=receivedDateTime desc';
+    const data=await graphGet(url);
+    // Convert Graph messages to trace format
+    S.rawRows=data.value.map(m=>({
+      MessageId:m.internetMessageId||m.id,
+      Received:m.receivedDateTime,
+      SenderAddress:m.from?.emailAddress?.address||'',
+      RecipientAddress:mailbox,
+      Subject:m.subject||'',
+      Status:'Delivered',
+      FromIP:'',
+      Size:'',
+      MessageTraceId:m.id, // Graph message ID for deletion
+      _graphId:m.id
+    }));
+    document.getElementById('upload-status').textContent=S.rawRows.length+' messages fetched';
+    document.getElementById('dz-sub').textContent='&#10003; Live fetch: '+S.rawRows.length+' messages from '+mailbox;
+    document.getElementById('dropzone').classList.add('loaded');
+    runClassification();
+    toast(S.rawRows.length+' messages loaded from Graph','ok');
+    goStep(2);
+  }catch(e){
+    toast('Graph error: '+e.message,'err');
+    document.getElementById('upload-status').textContent='Error: '+e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  CLASSIFICATION + RENDER
+// ═══════════════════════════════════════════════════════
+function runClassification(){
+  const intDom=document.getElementById('cfg-internal').value.trim().toLowerCase();
+  S.phish=[];S.borderline=[];S.clean=[];
+  for(const row of S.rawRows){
+    const c=classify(row,intDom);
+    const e={...row,_s:c.s,_r:c.r,_v:c.v,_id:row.MessageTraceId||row.MessageId||Math.random().toString(36).slice(2)};
+    if(c.v==='phish')S.phish.push(e);
+    else if(c.v==='borderline')S.borderline.push(e);
+    else S.clean.push(e);
+  }
+  S.phish.sort((a,b)=>b._s-a._s);
+  S.borderline.sort((a,b)=>b._s-a._s);
+}
+
+function renderStep2(){
+  const t=S.rawRows.length;
+  document.getElementById('stat-row').innerHTML=
+    '<div class="sc"><div class="sc-l">Total</div><div class="sc-v b">'+t+'</div></div>'+
+    '<div class="sc"><div class="sc-l">Threats</div><div class="sc-v r">'+S.phish.length+'</div></div>'+
+    '<div class="sc"><div class="sc-l">Borderline</div><div class="sc-v a">'+S.borderline.length+'</div></div>'+
+    '<div class="sc"><div class="sc-l">Clean</div><div class="sc-v g">'+S.clean.length+'</div></div>'+
+    '<div class="sc"><div class="sc-l">Threat rate</div><div class="sc-v">'+(t?Math.round((S.phish.length/t)*100):0)+'%</div></div>';
+
+  const tbody=document.getElementById('msg-tbody');
+  tbody.innerHTML='';
+  const all=[...S.phish,...S.borderline];
+  all.forEach(m=>{
+    const tr=document.createElement('tr');
+    tr.id='tr-'+m._id;
+    tr.dataset.id=m._id;
+    const recv=m.Received?new Date(m.Received).toLocaleString():'—';
+    const spCls=m._s>=70?'sp-r':m._s>=40?'sp-a':'sp-g';
+    const tags=(m._r||[]).slice(0,2).map(r=>'<span class="etag '+(m._s>=70?'h':'m')+'">'+esc(r)+'</span>').join('');
+    tr.innerHTML=
+      '<td><input type="checkbox" class="mchk row-chk" data-id="'+m._id+'"></td>'+
+      '<td title="'+esc(m.Subject||'')+'">'+esc((m.Subject||'(no subject)').slice(0,60))+'</td>'+
+      '<td title="'+esc(m.SenderAddress||'')+'">'+esc((m.SenderAddress||'—').slice(0,32))+'</td>'+
+      '<td>'+recv+'</td>'+
+      '<td><span class="score-pill '+spCls+'">'+m._s+'%</span></td>'+
+      '<td>'+tags+'</td>';
+    tr.querySelector('.row-chk').addEventListener('change',function(){
+      toggleSel(this.dataset.id,this.checked);
+    });
+    tbody.appendChild(tr);
+  });
+  updSelUI();
+}
+
+function toggleSel(id,checked){
+  if(checked)S.selected.add(id);else S.selected.delete(id);
+  const tr=document.getElementById('tr-'+id);
+  if(tr){tr.classList.toggle('sel',checked);tr.classList.toggle('sel-red',checked&&S.phish.some(m=>m._id===id));}
+  updSelUI();
+}
+
+function updSelUI(){
+  const n=S.selected.size;
+  document.getElementById('sel-lbl').textContent=n+' selected';
+  document.getElementById('sel-bar-count').textContent=n+' selected';
+  document.getElementById('sel-bar').classList.toggle('show',n>0);
+}
+
+// ═══════════════════════════════════════════════════════
+//  CLAUDE AI ANALYSIS
+// ═══════════════════════════════════════════════════════
+async function runAIAnalysis(){
+  const all=[...S.phish,...S.borderline];
+  const msgs=all.filter(m=>S.selected.has(m._id));
+  if(!msgs.length){toast('Select messages first','err');return;}
+
+  document.getElementById('ai-count').textContent=msgs.length;
+  document.getElementById('ai-thinking').style.display='flex';
+  document.getElementById('ai-stream').textContent='';
+  document.getElementById('rules-preview').style.display='none';
+  document.getElementById('btn-to-approve').style.display='none';
+  goStep(3);
+
+  // Build prompt
+  const msgList=msgs.map((m,i)=>
+    (i+1)+'. Subject: "'+m.Subject+'"\n   From: '+m.SenderAddress+'\n   Signals: '+(m._r||[]).join(', ')
+  ).join('\n\n');
+
+  const prompt=
+'You are an Exchange Online security analyst. Analyze these '+msgs.length+' suspicious email messages and extract subject keyword patterns to create inbox mail rules.\n\n'+
+'MESSAGES:\n'+msgList+'\n\n'+
+'OUTPUT INSTRUCTIONS:\n'+
+'1. Identify recurring keyword themes in the subjects (e.g. "Remittance", "Salary", "Verify", "Invoice")\n'+
+'2. For each theme, suggest one inbox rule using SubjectContainsWords\n'+
+'3. Identify sender domains that should be blocked\n'+
+'4. Be concise and specific — real keywords only, no wildcards\n'+
+'5. End your response with a JSON block in this exact format:\n\n'+
+'```json\n'+
+'{\n'+
+'  "rules": [\n'+
+'    {"type":"subject","value":"Remittance","action":"delete","reason":"Fake remittance lures across multiple senders"},\n'+
+'    {"type":"domain","value":"spammy-domain.com","action":"delete","reason":"All messages from this domain are spam"}\n'+
+'  ],\n'+
+'  "summary": "One sentence summary of the threat pattern"\n'+
+'}\n'+
+'```';
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:CLAUDE_MODEL,
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await resp.json();
+    const text=(data.content||[]).map(b=>b.text||'').join('');
+
+    document.getElementById('ai-thinking').style.display='none';
+    document.getElementById('ai-stream').textContent=text;
+
+    // Parse JSON from response
+    const jsonMatch=text.match(/```json\s*([\s\S]*?)```/);
+    if(jsonMatch){
+      try{
+        const parsed=JSON.parse(jsonMatch[1]);
+        S.suggestedRules=parsed.rules||[];
+        renderRulesPreview(msgs,S.suggestedRules);
+        document.getElementById('rules-preview').style.display='block';
+        document.getElementById('btn-to-approve').style.display='';
+      }catch(e){toast('Could not parse AI rule suggestions','err');}
+    }
+  }catch(e){
+    document.getElementById('ai-thinking').style.display='none';
+    document.getElementById('ai-stream').textContent='Error calling Claude API: '+e.message;
+    toast('AI analysis failed: '+e.message,'err');
+  }
+}
+
+function renderRulesPreview(msgs,rules){
+  const rl=document.getElementById('rules-list');
+  rl.innerHTML='';
+  if(!rules.length){rl.innerHTML='<div style="color:var(--text3);font-size:13px;padding:10px 0">No rules suggested.</div>';return;}
+  rules.forEach((rule,i)=>{
+    const card=document.createElement('div');
+    card.className='rule-card';
+    card.id='rp-'+i;
+    const typeCls=rule.type==='domain'?'rtb-domain':rule.type==='subject'?'rtb-subject':'rtb-sender';
+    card.innerHTML=
+      '<span class="rule-type-badge '+typeCls+'">'+rule.type+'</span>'+
+      '<div class="rule-detail">'+
+        '<div class="rule-value">'+esc(rule.value)+'</div>'+
+        '<div class="rule-desc">'+esc(rule.reason||'')+'</div>'+
+        '<div class="rule-affects">Action: '+esc(rule.action||'delete')+'</div>'+
+      '</div>'+
+      '<div class="rule-actions">'+
+        '<button class="btn btn-green btn-sm rp-approve" data-idx="'+i+'">&#10003; Use</button>'+
+        '<button class="btn btn-ghost btn-sm rp-skip" data-idx="'+i+'">Skip</button>'+
+      '</div>';
+    rl.appendChild(card);
+    card.querySelector('.rp-approve').addEventListener('click',function(){
+      S.approvedRules.add(parseInt(this.dataset.idx));
+      document.getElementById('rp-'+this.dataset.idx).classList.add('approved');
+      this.textContent='✓ Added'; this.disabled=true;
+    });
+    card.querySelector('.rp-skip').addEventListener('click',function(){
+      S.approvedRules.delete(parseInt(this.dataset.idx));
+      document.getElementById('rp-'+this.dataset.idx).classList.add('rejected');
+      this.disabled=true;
+    });
+  });
+
+  // Cleanup list
+  const cl=document.getElementById('cleanup-list');
+  cl.innerHTML='';
+  msgs.forEach((m,i)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px';
+    row.innerHTML=
+      '<input type="checkbox" class="mchk cleanup-chk" data-id="'+m._id+'" checked>'+
+      '<div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(m.Subject||'')+'">'+esc((m.Subject||'(no subject)').slice(0,55))+'</div>'+
+      '<div style="color:var(--text2);flex-shrink:0">'+esc((m.SenderAddress||'').slice(0,28))+'</div>';
+    row.querySelector('.cleanup-chk').addEventListener('change',function(){
+      if(this.checked)S.approvedDeletes.add(this.dataset.id);
+      else S.approvedDeletes.delete(this.dataset.id);
+    });
+    S.approvedDeletes.add(m._id);
+    cl.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP 4 — APPROVE
+// ═══════════════════════════════════════════════════════
+function renderStep4(){
+  const all=[...S.phish,...S.borderline];
+
+  // Rules
+  const approvedRules=[...S.approvedRules].map(i=>S.suggestedRules[i]).filter(Boolean);
+  const arl=document.getElementById('approve-rules-list');
+  arl.innerHTML='';
+  document.getElementById('empty-rules').style.display=approvedRules.length?'none':'block';
+  approvedRules.forEach((rule,i)=>{
+    const card=document.createElement('div');
+    card.className='rule-card approved';
+    const typeCls=rule.type==='domain'?'rtb-domain':rule.type==='subject'?'rtb-subject':'rtb-sender';
+    card.innerHTML=
+      '<span class="rule-type-badge '+typeCls+'">'+rule.type+'</span>'+
+      '<div class="rule-detail">'+
+        '<div class="rule-value">'+esc(rule.value)+'</div>'+
+        '<div class="rule-desc">'+esc(rule.reason||'')+'</div>'+
+        '<div class="rule-affects">Will create inbox rule: if '+rule.type+' contains "'+esc(rule.value)+'" → '+esc(rule.action||'delete')+'</div>'+
+      '</div>'+
+      '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.rule-card\').remove()">Remove</button>';
+    arl.appendChild(card);
+  });
+
+  // Delete table
+  const delMsgs=all.filter(m=>S.approvedDeletes.has(m._id));
+  document.getElementById('del-count').textContent=delMsgs.length;
+  const dtbody=document.getElementById('del-tbody');
+  dtbody.innerHTML='';
+  delMsgs.forEach(m=>{
+    const tr=document.createElement('tr');
+    const recv=m.Received?new Date(m.Received).toLocaleString():'—';
+    tr.innerHTML=
+      '<td><input type="checkbox" class="mchk del-chk" data-id="'+m._id+'" checked></td>'+
+      '<td title="'+esc(m.Subject||'')+'">'+esc((m.Subject||'(no subject)').slice(0,55))+'</td>'+
+      '<td>'+esc((m.SenderAddress||'—').slice(0,28))+'</td>'+
+      '<td>'+recv+'</td>';
+    tr.querySelector('.del-chk').addEventListener('change',function(){
+      if(this.checked)S.approvedDeletes.add(this.dataset.id);
+      else S.approvedDeletes.delete(this.dataset.id);
+      document.getElementById('del-count').textContent=document.querySelectorAll('.del-chk:checked').length;
+    });
+    dtbody.appendChild(tr);
+  });
+
+  const nRules=approvedRules.length;
+  const nDel=delMsgs.length;
+  document.getElementById('approve-summary').textContent=nRules+' rule'+(nRules!==1?'s':'')+' · '+nDel+' message'+(nDel!==1?'s':'')+' to delete';
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP 5 — EXECUTE
+// ═══════════════════════════════════════════════════════
+async function executeActions(){
+  if(!S.token){toast('Sign in to Microsoft 365 first','err');showAuthModal();return;}
+
+  const mailbox=document.getElementById('cfg-mailbox').value.trim()||S.userUpn;
+  const all=[...S.phish,...S.borderline];
+  const approvedRules=[...S.approvedRules].map(i=>S.suggestedRules[i]).filter(Boolean);
+  const delMsgs=all.filter(m=>S.approvedDeletes.has(m._id));
+
+  const tasks=[];
+  approvedRules.forEach(rule=>tasks.push({type:'rule',rule,label:'Create rule: '+rule.type+' "'+rule.value+'"'}));
+  delMsgs.forEach(m=>tasks.push({type:'delete',msg:m,label:'Delete: "'+( m.Subject||'(no subject)').slice(0,40)+'"'}));
+
+  goStep(5);
+
+  const el=document.getElementById('exec-list');
+  el.innerHTML='';
+  const items=[];
+  tasks.forEach((t,i)=>{
+    const d=document.createElement('div');
+    d.className='exec-item';
+    d.innerHTML=
+      '<div class="exec-ic">'+(t.type==='rule'?'&#128737;':'&#128465;')+'</div>'+
+      '<div><div class="exec-lbl">'+esc(t.label)+'</div></div>'+
+      '<span class="exec-status es-pending" id="es-'+i+'">Pending</span>';
+    el.appendChild(d);
+    items.push(d);
+  });
+
+  S.execResults=[];
+  let done=0;
+
+  for(let i=0;i<tasks.length;i++){
+    const t=tasks[i];
+    const statusEl=document.getElementById('es-'+i);
+    statusEl.className='exec-status es-running';
+    statusEl.textContent='Running…';
+
+    try{
+      if(t.type==='rule'){
+        await createMailRule(mailbox,t.rule);
+        statusEl.className='exec-status es-done';
+        statusEl.textContent='✓ Created';
+        S.execResults.push({...t,ok:true});
+      } else {
+        await deleteMessage(mailbox,t.msg);
+        statusEl.className='exec-status es-done';
+        statusEl.textContent='✓ Deleted';
+        // Mark row as gone in step 2 table
+        const tr=document.getElementById('tr-'+t.msg._id);
+        if(tr)tr.classList.add('gone');
+        S.execResults.push({...t,ok:true});
+      }
+    }catch(e){
+      statusEl.className='exec-status es-err';
+      statusEl.textContent='✗ Failed';
+      items[i].querySelector('.exec-lbl').insertAdjacentHTML('afterend','<div style="font-size:11px;color:var(--red)">'+esc(e.message)+'</div>');
+      S.execResults.push({...t,ok:false,err:e.message});
+    }
+    done++;
+    const pct=Math.round((done/tasks.length)*100);
+    document.getElementById('exec-pbar').style.width=pct+'%';
+    document.getElementById('exec-pct').textContent=pct+'%';
+    await sleep(180);
+  }
+
+  const ok=S.execResults.filter(r=>r.ok).length;
+  const fail=S.execResults.filter(r=>!r.ok).length;
+  document.getElementById('exec-success-msg').textContent=ok+' action'+(ok!==1?'s':'')+' completed successfully.'+(fail?' '+fail+' failed — see log above.':'');
+  document.getElementById('exec-summary').style.display='block';
+  document.getElementById('exec-success-box').className='ibox '+(fail?'ibox-amber':'ibox-green');
+  toast(ok+' actions completed'+(fail?' ('+fail+' failed)':''),'ok');
+}
+
+async function createMailRule(mailbox,rule){
+  // Graph API: create inbox rule
+  const body={
+    displayName:'PhishHunter — '+rule.type+' "'+rule.value+'"',
+    sequence:Math.floor(Math.random()*900)+100,
+    isEnabled:true
+  };
+  if(rule.type==='subject'){
+    body.conditions={subjectContains:[rule.value]};
+  } else if(rule.type==='domain'||rule.type==='sender'||rule.type==='address'){
+    body.conditions={senderContains:[rule.value]};
+  }
+  if(rule.action==='delete'||rule.action==='quarantine'){
+    body.actions={delete:true};
+  } else if(rule.action==='junk'){
+    body.actions={moveToFolder:'junkemail'};
+  }
+  await graphPost('/users/'+encodeURIComponent(mailbox)+'/mailFolders/inbox/messageRules',body);
+}
+
+async function deleteMessage(mailbox,msg){
+  // If we have a Graph message ID (_graphId from live fetch), use it directly
+  // If from CSV, we need to search for the message first
+  let graphId=msg._graphId;
+  if(!graphId&&msg.MessageId){
+    const search=await graphGet('/users/'+encodeURIComponent(mailbox)+'/messages?$filter=internetMessageId eq \''+encodeURIComponent(msg.MessageId)+'\'&$select=id&$top=1');
+    if(search.value&&search.value.length>0){graphId=search.value[0].id;}
+    else throw new Error('Message not found in mailbox');
+  }
+  await graphDelete('/users/'+encodeURIComponent(mailbox)+'/messages/'+graphId);
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP NAVIGATION
+// ═══════════════════════════════════════════════════════
+function goStep(n){
+  S.step=n;
+  document.querySelectorAll('.step-panel').forEach((p,i)=>{p.classList.toggle('active',i+1===n);});
+  document.querySelectorAll('.wstep').forEach((s,i)=>{
+    s.classList.toggle('active',i+1===n);
+    s.classList.toggle('done',i+1<n);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUTH MODAL
+// ═══════════════════════════════════════════════════════
+function showAuthModal(){document.getElementById('auth-modal').classList.add('show');}
+function hideAuthModal(){document.getElementById('auth-modal').classList.remove('show');}
+
+// ═══════════════════════════════════════════════════════
+//  UTIL
+// ═══════════════════════════════════════════════════════
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(msg,type='info'){
+  const w=document.getElementById('toast-wrap');
+  const d=document.createElement('div');
+  d.className='toast '+type;
+  d.textContent=msg;
+  w.appendChild(d);
+  setTimeout(()=>d.remove(),3500);
+}
+
+// ═══════════════════════════════════════════════════════
+//  DROPZONE
+// ═══════════════════════════════════════════════════════
+function initDZ(){
+  const dz=document.getElementById('dropzone');
+  const fi=document.getElementById('csv-file');
+  dz.addEventListener('click',()=>fi.click());
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])loadCSVFile(e.dataTransfer.files[0]);});
+  fi.addEventListener('change',()=>{if(fi.files[0])loadCSVFile(fi.files[0]);});
+}
+function loadCSVFile(f){
+  const r=new FileReader();
+  r.onload=e=>{
+    S.rawRows=parseCSV(e.target.result);
+    document.getElementById('dz-sub').textContent='✓ '+f.name+' — '+S.rawRows.length+' messages';
+    document.getElementById('dropzone').classList.add('loaded');
+    document.getElementById('upload-status').textContent=S.rawRows.length+' messages loaded';
+    runClassification();
+    toast(S.rawRows.length+' messages loaded','ok');
+    goStep(2);
+    renderStep2();
+  };
+  r.readAsText(f);
+}
+
+// ═══════════════════════════════════════════════════════
+//  BOOT — wire everything via addEventListener
+// ═══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',function(){
+
+  // Check OAuth return
+  if(handleOAuthReturn()){
+    // token in hand — proceed to step 1 (already default)
+  }
+
+  initDZ();
+
+  // Auth
+  document.getElementById('btn-signin').addEventListener('click',showAuthModal);
+  document.getElementById('btn-signout').addEventListener('click',()=>{
+    S.token=null;S.userUpn=null;S.userId=null;
+    setAuthUI(false);toast('Signed out','info');
+  });
+  document.getElementById('auth-go').addEventListener('click',()=>{
+    const clientId=document.getElementById('auth-clientid').value.trim()||CLIENT_ID;
+    hideAuthModal();
+    window.location.href=buildAuthUrl(clientId);
+  });
+  document.getElementById('auth-cancel').addEventListener('click',hideAuthModal);
+  document.getElementById('auth-modal').addEventListener('click',function(e){if(e.target===this)hideAuthModal();});
+
+  // Step 1
+  document.getElementById('btn-fetch-live').addEventListener('click',fetchLiveTrace);
+  document.getElementById('btn-upload-csv').addEventListener('click',()=>document.getElementById('csv-file').click());
+
+  // Step 2
+  document.getElementById('btn-back-1').addEventListener('click',()=>goStep(1));
+  document.getElementById('btn-analyze').addEventListener('click',()=>{
+    if(!S.selected.size){toast('Select at least one message','err');return;}
+    runAIAnalysis();
+  });
+  document.getElementById('btn-bar-analyze').addEventListener('click',()=>{
+    if(!S.selected.size){toast('Select at least one message','err');return;}
+    runAIAnalysis();
+  });
+  document.getElementById('btn-bar-delete-only').addEventListener('click',()=>{
+    if(!S.selected.size){toast('Select messages first','err');return;}
+    // Skip AI, go straight to approve with just deletes
+    const all=[...S.phish,...S.borderline];
+    all.filter(m=>S.selected.has(m._id)).forEach(m=>S.approvedDeletes.add(m._id));
+    S.suggestedRules=[];
+    goStep(4);
+    renderStep4();
+  });
+  document.getElementById('btn-sel-all-phish').addEventListener('click',()=>{
+    S.phish.forEach(m=>{
+      S.selected.add(m._id);
+      const tr=document.getElementById('tr-'+m._id);
+      if(tr){tr.classList.add('sel','sel-red');tr.querySelector('.row-chk').checked=true;}
+    });
+    updSelUI();
+  });
+  document.getElementById('btn-sel-clear').addEventListener('click',()=>{
+    S.selected.clear();
+    document.querySelectorAll('.row-chk').forEach(c=>c.checked=false);
+    document.querySelectorAll('#msg-tbody tr').forEach(tr=>tr.classList.remove('sel','sel-red'));
+    updSelUI();
+  });
+  document.getElementById('chk-all').addEventListener('change',function(){
+    const all=[...S.phish,...S.borderline];
+    all.forEach(m=>{
+      const tr=document.getElementById('tr-'+m._id);
+      if(this.checked){
+        S.selected.add(m._id);
+        if(tr){tr.classList.add('sel');tr.querySelector('.row-chk').checked=true;}
+      } else {
+        S.selected.delete(m._id);
+        if(tr){tr.classList.remove('sel','sel-red');tr.querySelector('.row-chk').checked=false;}
+      }
+    });
+    updSelUI();
+  });
+
+  // Step 3
+  document.getElementById('btn-back-2').addEventListener('click',()=>goStep(2));
+  document.getElementById('btn-to-approve').addEventListener('click',()=>{goStep(4);renderStep4();});
+
+  // Step 4
+  document.getElementById('btn-back-3').addEventListener('click',()=>goStep(3));
+  document.getElementById('btn-execute').addEventListener('click',executeActions);
+  document.getElementById('chk-del-all').addEventListener('change',function(){
+    document.querySelectorAll('.del-chk').forEach(c=>{
+      c.checked=this.checked;
+      const all=[...S.phish,...S.borderline];
+      const m=all.find(x=>x._id===c.dataset.id);
+      if(m){if(this.checked)S.approvedDeletes.add(m._id);else S.approvedDeletes.delete(m._id);}
+    });
+    document.getElementById('del-count').textContent=document.querySelectorAll('.del-chk:checked').length;
+  });
+
+  // Step 5
+  document.getElementById('btn-done').addEventListener('click',()=>{
+    S.selected.clear();S.approvedRules.clear();S.approvedDeletes.clear();S.suggestedRules=[];
+    goStep(1);
+    document.getElementById('exec-summary').style.display='none';
+  });
+  document.getElementById('btn-export-results').addEventListener('click',()=>{
+    const rows=S.execResults.map(r=>'"'+(r.label||'').replace(/"/g,'""')+'","'+r.type+'","'+(r.ok?'Success':'Failed')+'",'+(r.err?'"'+r.err+'"':'""'));
+    const csv='Label,Type,Result,Error\n'+rows.join('\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download='PhishHunter_Results_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+  });
+});
+</script>
+</body>
+</html>
